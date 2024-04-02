@@ -1,6 +1,7 @@
-__all__ = ["from_index_to_coord", "distance", "move_to_target"]
+__all__ = ["from_index_to_coord", "distance", "move_to_target", "play_action", "update_scores"]
 
 from enum import Enum, auto
+from collections import defaultdict
 
 
 class Moves(Enum):
@@ -97,3 +98,73 @@ def move_to_target(location, target, possible_actions):
         return possible_actions[Moves.left.value]
     # We are in the target !
     return possible_actions[Moves.nothing.value]
+
+
+def play_action(location, action, possible_actions, maze_width, maze_height):
+    """Update an input location (x, y) with the desired action
+
+    Parameters
+    ----------
+    location : Tuple[int, int]
+        Current location
+    action : str
+        One of `possible_actions`
+    possible_actions : List[str]
+        List of possible actions.
+    maze_width : int
+        The maze width
+    maze_height : int
+        The maze height
+
+    Returns
+    -------
+    Tuple[int, int]
+        The updated location
+    """
+    id_action = possible_actions.index(action)
+    x, y = location
+    if id_action == Moves.up.value:
+        y = min(y + 1, maze_height - 1)
+    elif id_action == Moves.down.value:
+        y = max(y - 1, 0)
+    elif id_action == Moves.right.value:
+        x = min(x + 1, maze_width - 1)
+    elif id_action == Moves.left.value:
+        x = max(x - 1, 0)
+    return (x, y)
+
+
+def update_scores(player_locations, player_scores, cheeses):
+    """Update player scores
+
+    Each player win +1 point iff they are alone on the square with a cheese.
+    If several players are in the same square and there is a cheese on it,
+    each player gets `1 - (num_players_in_square - 1)/total_players` points.
+
+    Parameters
+    ----------
+    player_locations : Dict[str, Union[int, Tuple[int, int]]]
+        Locations for all players in the game.
+    player_scores : Dict[str, float]
+        Scores for all players in the game
+    cheeses : List[Union[int, Tuple[int, int]]]
+        List of remaining cheeses
+
+    Returns
+    List[Union[int, Tuple[int, int]]]
+        Cheeses that were not consumed
+    """
+    # Each player in cheese wins 1.0 point
+    total_players = len(player_locations)
+    num_players_in_targets = defaultdict(lambda: -1 / total_players)
+    for player_name, player_position in player_locations.items():
+        if player_position in cheeses:
+            player_scores[player_name] += 1
+            num_players_in_targets[player_position] += 1 / total_players
+
+    # Penalizes players if they obtained the same cheese
+    for player_name, player_position in player_locations.items():
+        player_scores[player_name] -= num_players_in_targets.get(player_position, 0.0)
+
+    # Remove cheeses
+    return [x for x in cheeses if x not in num_players_in_targets]
